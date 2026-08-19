@@ -7652,8 +7652,11 @@ class PdfData(object):
         img_cmd_patterns2.append(cmd_pattern)
       if 'jbig2' in cmd_name:
         has_jbig2 = True
-    assert sam2p_np_pattern is not None, 'Missing sam2p_np command pattern.'
     img_cmd_patterns = img_cmd_patterns2
+
+    if sam2p_np_pattern is None and not img_cmd_patterns:
+      LogInfo('No image optimizers found. Skipping image optimization.')
+      return self
 
     # Render images which we couldn't convert in-process, using ImageRenderer.
     for gs_device in sorted(device_image_objs):
@@ -7755,35 +7758,43 @@ class PdfData(object):
         rendered_image_is_inverted = obj_images[-1][1].is_inverted
         assert rendered_image_file_name is not None
         assert rendered_image_file_name.endswith('.png')
-        obj_images.append(self.ConvertImage(
-            sourcefn=rendered_image_file_name,
-            is_inverted=rendered_image_is_inverted,
-            need_gray=(obj_num in force_grayscale_obj_nums),
-            targetfn=TMP_PREFIX + 'img-%d.sam2p-np.pdf' % obj_num,
-            # We specify -s here to explicitly exclude SF_Opaque for
-            # single-color images.
-            # !! do we need /ImageMask parsing if we exclude SF_Mask here as
-            #    well?
-            # Original sam2p order: Opaque:Transparent:Gray1:Indexed1:Mask:
-            #   Gray2:Indexed2:Rgb1:Gray4:Indexed4:Rgb2:Gray8:Indexed8:Rgb4:
-            #   Rgb8:Transparent2:Transparent4:Transparent8
-            # !! reintroduce Opaque by hand (combine /FlateEncode and
-            #    /RLEEncode; or /FlateEncode twice (!) to reduce zeroes in
-            #    empty_page.pdf from !)
-            # * We specify `sam2p -j:quiet' unconditionally, because the
-            #   console output of sam2p is useless. (Ignored by imgdataopt.)
-            cmd_pattern=sam2p_np_pattern,
-            cmd_name='sam2p_np'))
-        for _, old_image in obj_images[:-2]:
-          if old_image.file_name is not None:
-            os.remove(old_image.file_name)
-        old_image = None   # Save memory.
-        np_image = obj_images[-1][1]
-        assert np_image.width == obj_width
-        assert np_image.height == obj_height
-        assert np_image.compression == 'zip'
-        assert not np_image.is_interlaced, (
-            'Unexpected interlaced sam2p_np image.')
+        if sam2p_np_pattern is not None:
+          obj_images.append(self.ConvertImage(
+              sourcefn=rendered_image_file_name,
+              is_inverted=rendered_image_is_inverted,
+              need_gray=(obj_num in force_grayscale_obj_nums),
+              targetfn=TMP_PREFIX + 'img-%d.sam2p-np.pdf' % obj_num,
+              # We specify -s here to explicitly exclude SF_Opaque for
+              # single-color images.
+              # !! do we need /ImageMask parsing if we exclude SF_Mask here as
+              #    well?
+              # Original sam2p order: Opaque:Transparent:Gray1:Indexed1:Mask:
+              #   Gray2:Indexed2:Rgb1:Gray4:Indexed4:Rgb2:Gray8:Indexed8:Rgb4:
+              #   Rgb8:Transparent2:Transparent4:Transparent8
+              # !! reintroduce Opaque by hand (combine /FlateEncode and
+              #    /RLEEncode; or /FlateEncode twice (!) to reduce zeroes in
+              #    empty_page.pdf from !)
+              # * We specify `sam2p -j:quiet' unconditionally, because the
+              #   console output of sam2p is useless. (Ignored by imgdataopt.)
+              cmd_pattern=sam2p_np_pattern,
+              cmd_name='sam2p_np'))
+          for _, old_image in obj_images[:-2]:
+            if old_image.file_name is not None:
+              os.remove(old_image.file_name)
+          old_image = None   # Save memory.
+          np_image = obj_images[-1][1]
+          assert np_image.width == obj_width
+          assert np_image.height == obj_height
+          assert np_image.compression == 'zip'
+          assert not np_image.is_interlaced, (
+              'Unexpected interlaced sam2p_np image.')
+        else:
+          # sam2p_np not available, use rendered image directly
+          np_image = obj_images[-1][1]
+          for _, old_image in obj_images[:-1]:
+            if old_image.file_name is not None:
+              os.remove(old_image.file_name)
+          old_image = None   # Save memory.
         # See force_grayscale_obj_nums why this image must be grayscale.
         # Image optimizers such as optipng (in img_cmd_pattern) need
         # grayscale input (in pr_image_file_name) to produce
@@ -9733,13 +9744,11 @@ def main(argv, script_dir=None, zip_file=None):
         f.img_cmds.append('pngout')
       if f.use_sam2p_pr is True or (f.use_sam2p_pr is None and is_no_img_cmds):
         f.img_cmds.append('sam2p_pr')
-      if not [1 for cmd_pattern in f.img_cmds
-              if GetCmdName(cmd_pattern) == 'sam2p_np']:
-        f.img_cmds.append('sam2p_np')  # Enabled by default.
+      if is_no_img_cmds:
+        f.img_cmds.insert(0, 'sam2p_np')
       img_cmd_patterns = []
       for cmd in f.img_cmds:
-        if cmd in ('', 'no', 'none', 'sam2p', 'imgdataopt'):
-          # 'sam2p' or 'imgdataopt' is always used by default.
+        if cmd in ('', 'no', 'none'):
           continue
         cmd_pattern = IMAGE_OPTIMIZER_CMD_MAP.get(cmd, cmd).strip()
         if not cmd_pattern:
