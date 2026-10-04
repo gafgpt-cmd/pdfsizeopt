@@ -17,7 +17,7 @@ https://flattr.com/submit/auto?user_id=pts&url=https://github.com/pts/pdfsizeopt
 
 ## Getting started: how to run pdfsizeopt
 
-If it is your first time trying pdfizeopt, follow these instructions.
+If it is your first time trying pdfsizeopt, follow these instructions.
 (This section was updated on 2023-02-15.)
 
 It's easy to install and run pdfsizeopt on modern Linux and Windows systems
@@ -52,6 +52,33 @@ It's technically possible to port pdfsizeopt to other systems (and make it
 easy to install), but the author of pdfsizeopt doesn't have the free time to
 create and maintain such a port. As an FYI, see
 https://github.com/pts/pdfsizeopt/issues/154 about porting to Apple Silicon.
+
+## This private fork
+
+This checkout includes the T-3B changes and additional upstream PR fixes.
+Run `./pdfsizeopt` from this checkout to use the updated source. `pdfsizeopt.single` is generated from source; build it before distributing
+or using Docker. See [FORK.md](FORK.md) for PR status, tests and build instructions.
+For image preservation, keep Multivalent and core-font removal disabled.
+
+## Running on GitHub Codespaces
+
+Codespaces availability and charges depend on your GitHub plan and quota.
+Open this repository using **Code > Codespaces**. In its terminal, stay in the
+repository checkout and install the upstream Linux x86 runtime dependencies:
+
+```sh
+curl -fL -o /tmp/pdfsizeopt-libexec.tar.gz \
+  https://github.com/pts/pdfsizeopt/releases/download/2023-04-18/pdfsizeopt_libexec_linux-v9.tar.gz
+echo 'd24676a390b8c5ea3a3edcf9af7b69a829537b101df97cc0d08a9998774b68f5  /tmp/pdfsizeopt-libexec.tar.gz' | sha256sum -c -
+tar xzf /tmp/pdfsizeopt-libexec.tar.gz
+./pdfsizeopt --version
+./pdfsizeopt --use-multivalent=no input.pdf output.pdf
+```
+
+The source launcher uses the runtime beside it. It does not download another
+repository's program. Upload a PDF through the file explorer, then download
+the separate output file when finished. Use only documents appropriate for
+processing in a cloud workspace.
 
 ## Installation instructions and usage on Linux
 
