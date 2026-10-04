@@ -25,6 +25,7 @@ T-3B has no open PRs. Original has seven:
 | `lib/pdfsizeopt/main.py` optimizer map/discovery | PR178–180 combination; check both built-in chain programs. |
 | `lib/pdfsizeopt/main.py` ZlibCmd/main | Validate template independently; reset compressor per invocation; verify complete exact zlib round-trip, reject trailing data, keep smaller of valid result and baseline; unique temporary names and failure cleanup. |
 | `lib/pdfsizeopt/main.py` OptimizeImages | Skip unavailable optimizers before mutation; stage metadata changes on a copy so skipped images retain SMask, Metadata and Intent. |
+| `lib/pdfsizeopt/main.py` GenerateXrefStream | Retain /Index when the type field is omitted; zero padding would mark reserved object 0 as in-use at byte offset zero. Caught by qpdf 11.x on Ubuntu CI. |
 | `lib/pdfsizeopt/main.py` _RunMultivalent | Remove T-3B's added unconditional `-nostruct -nowebcap`. Core-font unembedding remains explicit/default-off. |
 | `README.md` | PR181 typo, fork-aware Codespaces/build instructions. |
 | `.gitignore`, `pdfsizeopt.single` | Generated single-file package is untracked and built from source, never edited by hand. |

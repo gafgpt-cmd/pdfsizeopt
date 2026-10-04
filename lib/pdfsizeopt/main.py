@@ -5453,16 +5453,8 @@ class PdfData(object):
       extra_width = 1 + max_w2_size
     else:
       data = ''
-      if index_size:
-        assert obj_numbers[0] != 0
-        if obj_numbers[0] <= (index_size - 1) / max_ofs_size:
-          # Save a few bytes by removing /Index and adding zeros to the
-          # beginning of the stream.
-          #
-          # For testing: --use-multivalent=no --do-generate-xref-stream=yes
-          # --do-generate-object-stream=no issue57.pdf
-          data = '\0' * (obj_numbers[0] * max_ofs_size)
-          trailer_obj.Set('Index', None)
+      # With W[0 ...], every entry is implicitly in-use. Keep /Index so
+      # omitted object numbers (especially object 0) aren't emitted at offset 0.
       assert max_w2 == -1
       trailer_obj.Set('W', '[0 %d 0]' % max_ofs_size)
       if max_ofs_size == 1:

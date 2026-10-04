@@ -191,6 +191,16 @@ class ForkRegressionTest(unittest.TestCase):
     self.assertEqual(data, zlib.decompress(main.ZlibCmd(
         data, 9, 'fake %(sourcefnq)s %(targetfnq)s')))
 
+  def test_xref_without_type_field_omits_reserved_object_zero(self):
+    trailer = main.PdfObj(None)
+    trailer.head = '<< /Root 1 0 R >>'
+    main.PdfData.GenerateXrefStream(
+        [1, 2], {1: 15, 2: 65}, 109, trailer, 3, None, None,
+        is_flate_ok=False)
+    self.assertEqual('[0 1 0]', trailer.Get('W'))
+    self.assertEqual('[1 3]', trailer.Get('Index'))
+    self.assertEqual('\x0f\x41\x6d', trailer.stream)
+
 
 if __name__ == '__main__':
   unittest.main(verbosity=2)
