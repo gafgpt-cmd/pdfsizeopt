@@ -45,6 +45,12 @@ bash extra/setup_fork_tests.sh
 bash extra/run_fork_tests.sh
 ```
 
+After setup, build only the distributable from the checkout root with:
+
+```sh
+.runtime/python2/bin/python2.7 mksingle.py
+```
+
 The runner executes upstream tests, fork regressions, and 13 synthetic PDF
 cases through six optimizer configurations. It builds `pdfsizeopt.single`
 with the existing generator, then repeats preservation tests through it.

@@ -56,8 +56,12 @@ https://github.com/pts/pdfsizeopt/issues/154 about porting to Apple Silicon.
 ## This private fork
 
 This checkout includes the T-3B changes and additional upstream PR fixes.
-Run `./pdfsizeopt` from this checkout to use the updated source. `pdfsizeopt.single` is generated from source; build it before distributing
-or using Docker. See [FORK.md](FORK.md) for PR status, tests and build instructions.
+Run `./pdfsizeopt` from this checkout to use the updated source.
+`pdfsizeopt.single` is generated from source; build it before distributing
+or building a Docker image. See [FORK.md](FORK.md) for PR status, tests and
+build instructions. The platform installation sections below download the
+original upstream release, not this fork. To use this fork with the upstream
+Docker image, mount and run the locally built `./pdfsizeopt.single`.
 For image preservation, keep Multivalent and core-font removal disabled.
 
 ## Running on GitHub Codespaces
@@ -597,7 +601,10 @@ PDF files smaller:
 * zopflipng (not enabled by default)
 * optipng (not enabled by default)
 * advpng (not enabled by default)
-* ECT (not enabled by default)
+* ECT / ect (not enabled by default; select the executable's exact case;
+  both enable threaded Deflate)
+* oxipng (not enabled by default; strips only metadata safe to remove)
+* oxipng_ect (not enabled by default; runs oxipng followed by lowercase ect)
 
 To enable or disable any image optimizer, specify all image optimizers you
 want to be enabled like this: --use-image-optimizer=optipng,jbig2 . This
@@ -618,6 +625,8 @@ enabled (and their full command-line) for the current run.
 At startup, pdfsizeopt checks that the requested image optimizers are
 available (as program files), and fails if some of them are missing. To
 ignore those which are missing, specify --do-require-image-optimizers=no .
+The `oxipng_ect` chain requires both executables; if either is missing,
+the whole chain is skipped in optional mode.
 
 It's your (the user's) responsibility to install the image optimizers and
 add them to the PATH. If you follow the installation instructions for
