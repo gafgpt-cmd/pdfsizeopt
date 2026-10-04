@@ -5454,7 +5454,8 @@ class PdfData(object):
     else:
       data = ''
       # With W[0 ...], every entry is implicitly in-use. Keep /Index so
-      # omitted object numbers (especially object 0) aren't emitted at offset 0.
+      # omitted object numbers (especially object 0) aren't emitted at
+      # offset 0.
       assert max_w2 == -1
       trailer_obj.Set('W', '[0 %d 0]' % max_ofs_size)
       if max_ofs_size == 1:
