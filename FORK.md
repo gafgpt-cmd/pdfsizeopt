@@ -48,7 +48,7 @@ bash extra/run_fork_tests.sh
 After setup, build only the distributable from the checkout root with:
 
 ```sh
-.runtime/python2/bin/python2.7 mksingle.py
+PATH="$PWD/.runtime/bin:$PATH" .runtime/python2/bin/python2.7 "$PWD/mksingle.py"
 ```
 
 The runner executes upstream tests, fork regressions, and 13 synthetic PDF
