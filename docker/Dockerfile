@@ -9,6 +9,7 @@ COPY pyproject.toml uv.lock ./
 COPY extra/setup_fork_tests.sh extra/
 ENV PYTHON3=/usr/local/bin/python3
 RUN bash extra/setup_fork_tests.sh
+ENV PYTHON3=/opt/pdfsizeopt/.venv/bin/python
 COPY . .
 RUN .venv/bin/python mksingle.py
 WORKDIR /work
