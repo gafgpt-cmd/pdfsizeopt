@@ -1,0 +1,12 @@
+[project]
+name = "pdfsizeopt"
+version = "0.1.0"
+description = "Lossless PDF optimization with a modern Python toolchain"
+requires-python = ">=3.14,<3.15"
+dependencies = ["pikepdf==10.16.0"]
+
+[dependency-groups]
+dev = ["Pillow==12.3.0", "pycodestyle==2.15.0"]
+
+[tool.uv]
+package = false

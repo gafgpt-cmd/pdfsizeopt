@@ -9,6 +9,8 @@ import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), 'lib'))
+from pdfsizeopt import binary
+from pdfsizeopt.binary import buffer, open_octets
 from pdfsizeopt import main
 
 
@@ -20,7 +22,7 @@ class ForkRegressionTest(unittest.TestCase):
     os.environ['HOME'] = self.scratch
     os.environ['PATH'] = self.scratch
     self.patch(main, 'TMP_PREFIX', os.path.join(self.scratch, 'tmp.'))
-    self.patch(main, 'compat_compress', zlib.compress)
+    self.patch(main, 'compat_compress', binary.compress)
     self.patch(main, 'GetLibexecDir', lambda unused: None)
     self.patch(main, 'PrependToPath', lambda unused: None)
     self.patch(main, 'FindExeOnPath', lambda name: name)
@@ -48,7 +50,7 @@ class ForkRegressionTest(unittest.TestCase):
     def run(cmd):
       args = shlex.split(cmd)
       if create:
-        with open(args[-1], 'wb') as f:
+        with open_octets(args[-1], 'wb') as f:
           f.write(result)
       return status
     self.patch(main.os, 'system', run)
@@ -67,12 +69,12 @@ class ForkRegressionTest(unittest.TestCase):
   def test_zlib_state_does_not_leak_to_next_invocation(self):
     self.cli('--use-zlib-optimizer=fake %(targetfnq)s')
     self.cli('--use-image-optimizer=none')
-    self.assertIs(main.compat_compress, zlib.compress)
+    self.assertIs(main.compat_compress, binary.compress)
 
   def test_zlib_rejects_corrupt_truncated_wrong_and_trailing_output(self):
     data = 'preserve these pixels' * 500
-    for output in ('', 'bad', zlib.compress(data)[:-1],
-                   zlib.compress('different'), zlib.compress(data) + 'junk'):
+    for output in ('', 'bad', binary.compress(data)[:-1],
+                   binary.compress('different'), binary.compress(data) + 'junk'):
       self.external(output)
       self.assertRaises(SystemExit, main.ZlibCmd, data, 9,
                         'fake %(sourcefnq)s %(targetfnq)s')
@@ -80,21 +82,21 @@ class ForkRegressionTest(unittest.TestCase):
 
   def test_zlib_larger_valid_output_uses_baseline(self):
     data = 'repeat pixel' * 1000
-    self.external(zlib.compress(data, 0))
-    self.assertEqual(zlib.compress(data, 9), main.ZlibCmd(
+    self.external(binary.compress(data, 0))
+    self.assertEqual(binary.compress(data, 9), main.ZlibCmd(
         data, 9, 'fake %(sourcefnq)s %(targetfnq)s'))
     self.assertEqual([], os.listdir(self.scratch))
 
   def test_zlib_smaller_valid_output_is_kept(self):
     data = 'repeat pixel' * 1000
-    output = zlib.compress(data, 9)
+    output = binary.compress(data, 9)
     self.external(output)
     self.assertEqual(output, main.ZlibCmd(data, 1, 'fake %(targetfnq)s'))
     self.assertEqual([], os.listdir(self.scratch))
 
   def test_zlib_empty_input(self):
-    self.external(zlib.compress(''))
-    self.assertEqual('', zlib.decompress(main.ZlibCmd(
+    self.external(binary.compress(''))
+    self.assertEqual('', binary.decompress(main.ZlibCmd(
         '', 9, 'fake %(sourcefnq)s %(targetfnq)s')))
 
   def test_zlib_failure_and_missing_output_clean_up(self):
@@ -110,7 +112,7 @@ class ForkRegressionTest(unittest.TestCase):
     obj.head = ('<</Subtype/Image/Width 1/Height 1/BitsPerComponent 8'
                 '/ColorSpace/DeviceRGB/Filter/FlateDecode/SMask 2 0 R'
                 '/Metadata 3 0 R/Intent/RelativeColorimetric%s>>' % extra)
-    obj.stream = zlib.compress('\xff\x00\x00')
+    obj.stream = binary.compress('\xff\x00\x00')
     obj.Set('Length', len(obj.stream))
     pdf.objs = {1: obj}
     return pdf
@@ -148,7 +150,7 @@ class ForkRegressionTest(unittest.TestCase):
     image.color_type = 'rgb'
     image.is_inverted = image.is_interlaced = False
     image.compression = 'zip-png'
-    image.idat = zlib.compress('\0\xff\0\0')
+    image.idat = binary.compress('\0\xff\0\0')
     source = os.path.join(self.scratch, "image with ' quote.png")
     image.SavePng(source)
     calls = []
@@ -174,7 +176,7 @@ class ForkRegressionTest(unittest.TestCase):
     def run(cmd):
       args = shlex.split(cmd)
       calls.append(args)
-      with open(args[-1][:-4] + '-o.pdf', 'wb') as f:
+      with open_octets(args[-1][:-4] + '-o.pdf', 'wb') as f:
         f.write('%PDF-1.4\nsynthetic output')
       return 0
 
@@ -187,8 +189,8 @@ class ForkRegressionTest(unittest.TestCase):
 
   def test_large_zlib_input_round_trips(self):
     data = 'all pixels must remain unchanged' * 65536
-    self.external(zlib.compress(data, 9))
-    self.assertEqual(data, zlib.decompress(main.ZlibCmd(
+    self.external(binary.compress(data, 9))
+    self.assertEqual(data, binary.decompress(main.ZlibCmd(
         data, 9, 'fake %(sourcefnq)s %(targetfnq)s')))
 
   def test_xref_without_type_field_omits_reserved_object_zero(self):

@@ -1,0 +1,7 @@
+.git
+.runtime
+.venv
+pdfsizeopt_libexec
+pdfsizeopt.single
+__pycache__
+**/__pycache__
