@@ -16,7 +16,9 @@ Confirmed and fixed:
 Additional preservation decision: remove T-3B's unconditional Multivalent
 structure/source-link stripping additions. Command-capture regression checks
 that font unembedding remains opt-in. This is not a claim of live Multivalent
-preservation; preservation runs explicitly disable it.
+preservation; preservation runs explicitly disable it. Approved coverage
+exception: no compatible live Multivalent engine was available, and Doc
+approved shipping with Multivalent default-off without that live test.
 
 Coverage: return contracts, cleanup on compressor failure, CLI boundaries,
 empty and multi-megabyte inputs, malformed/truncated/wrong-type outputs,
