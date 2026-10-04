@@ -1,0 +1,21 @@
+name: preservation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  lossless:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install build and PDF validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake nasm zlib1g-dev libssl-dev libffi-dev advancecomp qpdf poppler-utils
+          python3 -m pip install uv==0.12.19
+      - name: Prepare pinned test dependencies
+        run: bash extra/setup_fork_tests.sh
+      - name: Test source and rebuilt package
+        run: bash extra/run_fork_tests.sh

@@ -17,7 +17,7 @@ https://flattr.com/submit/auto?user_id=pts&url=https://github.com/pts/pdfsizeopt
 
 ## Getting started: how to run pdfsizeopt
 
-If it is your first time trying pdfizeopt, follow these instructions.
+If it is your first time trying pdfsizeopt, follow these instructions.
 (This section was updated on 2023-02-15.)
 
 It's easy to install and run pdfsizeopt on modern Linux and Windows systems
@@ -52,6 +52,37 @@ It's technically possible to port pdfsizeopt to other systems (and make it
 easy to install), but the author of pdfsizeopt doesn't have the free time to
 create and maintain such a port. As an FYI, see
 https://github.com/pts/pdfsizeopt/issues/154 about porting to Apple Silicon.
+
+## This private fork
+
+This checkout includes the T-3B changes and additional upstream PR fixes.
+Run `./pdfsizeopt` from this checkout to use the updated source.
+`pdfsizeopt.single` is generated from source; build it before distributing
+or building a Docker image. See [FORK.md](FORK.md) for PR status, tests and
+build instructions. The platform installation sections below download the
+original upstream release, not this fork. To use this fork with the upstream
+Docker image, mount and run the locally built `./pdfsizeopt.single`.
+For image preservation, keep Multivalent and core-font removal disabled.
+
+## Running on GitHub Codespaces
+
+Codespaces availability and charges depend on your GitHub plan and quota.
+Open this repository using **Code > Codespaces**. In its terminal, stay in the
+repository checkout and install the upstream Linux x86 runtime dependencies:
+
+```sh
+curl -fL -o /tmp/pdfsizeopt-libexec.tar.gz \
+  https://github.com/pts/pdfsizeopt/releases/download/2023-04-18/pdfsizeopt_libexec_linux-v9.tar.gz
+echo 'd24676a390b8c5ea3a3edcf9af7b69a829537b101df97cc0d08a9998774b68f5  /tmp/pdfsizeopt-libexec.tar.gz' | sha256sum -c -
+tar xzf /tmp/pdfsizeopt-libexec.tar.gz
+./pdfsizeopt --version
+./pdfsizeopt --use-multivalent=no input.pdf output.pdf
+```
+
+The source launcher uses the runtime beside it. It does not download another
+repository's program. Upload a PDF through the file explorer, then download
+the separate output file when finished. Use only documents appropriate for
+processing in a cloud workspace.
 
 ## Installation instructions and usage on Linux
 
@@ -570,7 +601,10 @@ PDF files smaller:
 * zopflipng (not enabled by default)
 * optipng (not enabled by default)
 * advpng (not enabled by default)
-* ECT (not enabled by default)
+* ECT / ect (not enabled by default; select the executable's exact case;
+  both enable threaded Deflate)
+* oxipng (not enabled by default; strips only metadata safe to remove)
+* oxipng_ect (not enabled by default; runs oxipng followed by lowercase ect)
 
 To enable or disable any image optimizer, specify all image optimizers you
 want to be enabled like this: --use-image-optimizer=optipng,jbig2 . This
@@ -591,6 +625,8 @@ enabled (and their full command-line) for the current run.
 At startup, pdfsizeopt checks that the requested image optimizers are
 available (as program files), and fails if some of them are missing. To
 ignore those which are missing, specify --do-require-image-optimizers=no .
+The `oxipng_ect` chain requires both executables; if either is missing,
+the whole chain is skipped in optional mode.
 
 It's your (the user's) responsibility to install the image optimizers and
 add them to the PATH. If you follow the installation instructions for
