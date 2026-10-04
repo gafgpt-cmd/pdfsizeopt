@@ -267,7 +267,8 @@ def ZlibCmd(data, level, cmd_pattern):
       f.close()
     LogProportionalInfo('executing zlib optimizer: %s' % cmd)
     sys.stdout.flush()
-    status = os.system(RedirectOutput(cmd, mode=(None, False)[NeedToolLogOutput()]))
+    status = os.system(RedirectOutput(
+        cmd, mode=(None, False)[NeedToolLogOutput()]))
     if status:
       LogFatal('zlib optimizer has failed (status=0x%x): %s' % (status, cmd))
     try:
@@ -9531,8 +9532,11 @@ IMAGE_OPTIMIZER_CMD_MAP = {
     'optipng':  'optipng %(sourcefnq)s -o4 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',
     'optipng4': 'optipng %(sourcefnq)s -o4 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',
     'optipng7': 'optipng %(sourcefnq)s -o7 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',  # Slowest.
-    'oxipng': 'oxipng --interlace 0 --quiet --strip safe -o max -- %(targetfnq)s',
-    'oxipng_ect': 'oxipng --interlace 0 --quiet --strip safe -o max -- %(targetfnq)s && ect -9 -strip --mt-deflate %(targetfnq)s',
+    'oxipng': ('oxipng --interlace 0 --quiet --strip safe -o max -- '
+               '%(targetfnq)s'),
+    'oxipng_ect': ('oxipng --interlace 0 --quiet --strip safe -o max -- '
+                   '%(targetfnq)s && ect -9 -strip --mt-deflate '
+                   '%(targetfnq)s'),
     'ect': 'ect -9 -strip --mt-deflate %(targetfnq)s',
     'ECT': 'ECT -9 -strip --mt-deflate %(targetfnq)s',
     'advpng':  'advpng -z3 -f %(targetfnq)s',
@@ -9856,8 +9860,9 @@ def main(argv, script_dir=None, zip_file=None):
       cmd_prog = (cmd_pattern.split() or ('',))[0]
     if not cmd_prog:
       LogFatal('empty image optimizer program: %s' % cmd_prog, 1)
-    if (cmd_pattern == IMAGE_OPTIMIZER_CMD_MAP['oxipng_ect'] and
-        not FindExeOnPath('ect')):
+    if (
+            cmd_pattern == IMAGE_OPTIMIZER_CMD_MAP['oxipng_ect'] and
+            not FindExeOnPath('ect')):
       LogError('image optimizer not found on PATH: ect (oxipng_ect)')
       has_not_found = True
       continue
