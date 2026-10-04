@@ -20,6 +20,21 @@ def run(args, env):
                           stderr=subprocess.PIPE, env=env, timeout=120).stdout
 
 
+def qpdf(args, env):
+    # Upstream xref streams omit the type field, so object 0 reads as offset 0;
+    # qpdf 11 warns about exactly that and exits 3. Any other warning fails.
+    result = subprocess.run(['qpdf'] + args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, env=env, timeout=120)
+    warnings = [line for line in result.stderr.decode('utf-8', 'replace').splitlines()
+                if line.startswith('WARNING: ')]
+    if result.returncode == 0 or (
+            result.returncode == 3 and warnings
+            and all(line.endswith(': object has offset 0') for line in warnings)):
+        return result.stdout
+    raise subprocess.CalledProcessError(result.returncode, result.args,
+                                        result.stdout, result.stderr)
+
+
 def stream(attrs, data):
     return (b'<<' + attrs + b'/Length ' + str(len(data)).encode('ascii')
             + b'>>\nstream\n' + data + b'\nendstream')
@@ -109,8 +124,8 @@ def fixture(path, case):
 
 
 def image_objects(path, env):
-    document = json.loads(run(['qpdf', '--json', '--json-stream-data=inline',
-                               str(path)], env))
+    document = json.loads(qpdf(['--json', '--json-stream-data=inline',
+                                str(path)], env))
     return [value['stream'] for value in document['qpdf'][1].values()
             if value.get('stream', {}).get('dict', {}).get('/Subtype') == '/Image']
 
@@ -144,7 +159,7 @@ def main():
             args += [str(source), str(output)]
             try:
                 run(args, env)
-                run(['qpdf', '--check', str(output)], env)
+                qpdf(['--check', str(output)], env)
                 for dpi in expected:
                     prefix = work / ('after-%s-%s-%d' % (case, optimizer, dpi))
                     run(['pdftoppm', '-r', str(dpi), '-singlefile', str(output),
