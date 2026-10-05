@@ -1,7 +1,7 @@
-# Private pdfsizeopt fork
+# pdfsizeopt fork maintenance
 
-Origin: `gafgpt-cmd/pdfsizeopt` (private). Upstream: `T-3B/pdfsizeopt`.
-Original: `pts/pdfsizeopt`. Both public remotes are push-disabled locally.
+Origin: `gafgpt-cmd/pdfsizeopt`. Upstream: `T-3B/pdfsizeopt`.
+Original: `pts/pdfsizeopt`. Upstream and original remotes are push-disabled locally.
 Base: `0af13e98d36205168b7699813da3cfddd019946b` (2026-08-22).
 
 ## PR inventory (2026-10-04)
@@ -34,11 +34,11 @@ T-3B has no open PRs. Original has seven:
 | `lib/pdfsizeopt/psproc.py` | Modern Ghostscript FontDirectory/CFF loader; remove obsolete `.setpdfwrite`. |
 | `pdfsizeopt`, `mksingle.py` | Python 3/project environment launcher; standard zipapp generator with the same interpreter selection prepended. |
 | `pdfsizeopt_test.py`, `extra/dvipdfmx_fontfix.py` | Python 3 syntax and byte contracts; UTF-8 helper file I/O, attached-map argument progress and argument-vector lookup. |
-| `README.md`, `docker/*`, `docker_extraimgopt/*` | Current toolchain installation and unprivileged container, fork-aware Codespaces instructions. |
+| `README.md`, `docker/*`, `docker_extraimgopt/*` | Current toolchain installation and unprivileged container, fork-aware Codespaces instructions; README links to usage, preservation boundaries and public benchmark results. |
 | `.gitignore`, `pdfsizeopt.single` | Generated single-file package is untracked and built from source, never edited by hand. |
 
 Own files: `lib/pdfsizeopt/{binary,cli,image_filters}.py`, `pyproject.toml`,
-`uv.lock`, `.dockerignore`, `docs/TOOLCHAIN.md`, `extra/*fork*`,
+`uv.lock`, `.dockerignore`, `docs/{TOOLCHAIN,USAGE,BENCHMARKS}.md`, `extra/*fork*`,
 `extra/{preservation,font_preservation,python3_regression}_test.py`,
 `.github/workflows/ci.yml`, this ledger and review evidence.
 Architect reviewed the earlier incoming PR diffs before integration: conditional

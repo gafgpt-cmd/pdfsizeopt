@@ -1,4 +1,4 @@
-# pdfsizeopt: modern private fork
+# pdfsizeopt: modern lossless PDF optimization
 
 Lossless PDF optimization for Linux x86_64, based on
 [T-3B/pdfsizeopt](https://github.com/T-3B/pdfsizeopt) and
@@ -11,13 +11,46 @@ smaller candidates without downsampling or introducing lossy encoding.
 JPEG and JPEG2000 compressed image data are left unchanged. Embedded fonts stay
 embedded; Multivalent and core-font removal remain disabled by default.
 
+## Choose a compression setting
+
+For routine use, the measured faster setting keeps lossless Oxipng and JBIG2:
+
+```sh
+./pdfsizeopt --use-image-optimizer=oxipng,jbig2 input.pdf output.pdf
+```
+
+For an additional attempt at smaller images, use the current default:
+
+```sh
+./pdfsizeopt input.pdf output.pdf
+```
+
+The default also runs Oxipng with Zopfli. Both settings preserve image quality;
+Zopfli spends extra CPU time searching for denser compression. It does not
+increase resolution or improve pixels. On six public PDFs that all tested
+versions completed, omitting Zopfli reduced aggregate time from 49.10 to 12.09
+seconds, with just 201 additional output bytes. Results depend on the input;
+see [benchmark methods, results and failures](docs/BENCHMARKS.md).
+
+**Known issue in the benchmarked main revision:** some existing JBIG2 images
+fail during Ghostscript extraction. Disabling Zopfli does not fix this. A
+preservation repair has been tested on a separate branch but is not merged.
+See [troubleshooting](docs/USAGE.md#troubleshooting) for the workaround and status.
+
 ## Install and run
 
-On Ubuntu 24.04 or Debian 13, install the build dependencies:
+Clone the repository, then enter its directory:
+
+```sh
+git clone https://github.com/gafgpt-cmd/pdfsizeopt.git
+cd pdfsizeopt
+```
+
+On Ubuntu 24.04 or Debian 13 (Linux x86_64), install the build dependencies:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y build-essential cmake pkg-config nasm curl git unzip \
+sudo apt-get install -y build-essential cmake pkg-config nasm curl git unzip ca-certificates \
   zlib1g-dev libssl-dev libffi-dev libjpeg-dev libpng-dev libtiff-dev \
   libleptonica-dev libfreetype6-dev libfontconfig1-dev libopenjp2-7-dev \
   liblcms2-dev libbrotli-dev libharfbuzz-dev libcairo2-dev
@@ -67,6 +100,15 @@ the archive inside the image, so it needs `--user root`.
 Codespaces can use the same installation commands in this checkout. Use the
 repository's source or locally built archive, rather than downloading the old
 upstream executable.
+
+## Documentation
+
+- [Usage and troubleshooting](docs/USAGE.md): settings, preservation boundaries,
+  output checks and common failures.
+- [Public PDF benchmark](docs/BENCHMARKS.md): timing, output sizes, image checks,
+  input provenance and resource controls.
+- [Toolchain](docs/TOOLCHAIN.md): pinned versions and replacement rationale.
+- [Fork maintenance](FORK.md): inherited PRs, modified upstream seams and tests.
 
 ## Versions and maintenance
 
