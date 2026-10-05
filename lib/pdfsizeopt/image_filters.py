@@ -10,5 +10,5 @@ def unfilter(data, predictor, colors, bits, columns):
     stream = pikepdf.Stream(
         pdf, data, Filter=pikepdf.Name.FlateDecode,
         DecodeParms=pikepdf.Dictionary(Predictor=predictor, Colors=colors,
-                                      BitsPerComponent=bits, Columns=columns))
+                                       BitsPerComponent=bits, Columns=columns))
     return stream.read_bytes()

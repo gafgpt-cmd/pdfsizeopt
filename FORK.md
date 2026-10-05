@@ -57,7 +57,7 @@ bash extra/run_fork_tests.sh
 ```
 
 The runner exercises upstream parser/font tests, fork regressions, all-byte and
-predictor regressions, 14 image cases through five optimizer configurations,
+predictor regressions, 15 image cases through five optimizer configurations,
 and embedded fonts with merging enabled and disabled. Both source and generated
 archive are checked. Assertions cover identical renders at 72/144 dpi,
 metadata, masks, text and unchanged JPEG/JP2 compressed payloads.
