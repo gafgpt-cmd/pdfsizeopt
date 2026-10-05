@@ -61,6 +61,13 @@ def fixture(path, case):
         raw = bytes(x % 4 for y in range(size) for x in range(size))
     elif case == 'soft-mask':
         extra = b'/SMask 6 0 R'
+    elif case == 'sparse-soft-mask':
+        extra = b'/SMask 6 0 R'
+        mask = stream(b'/Subtype/Image/Width 64/Height 64/ColorSpace/DeviceGray'
+                      b'/BitsPerComponent 8/Filter/FlateDecode',
+                      zlib.compress(bytes((0, 100, 255)[(x // 8 + y // 8) % 3]
+                                          for y in range(64)
+                                          for x in range(64))))
     elif case == 'colour-key':
         extra = b'/Mask[0 0 0 255 120 120]'
     elif case == 'custom-decode':
@@ -128,7 +135,7 @@ def main():
     python3 = os.environ.get('PYTHON3', str(ROOT / '.venv/bin/python'))
     launcher = os.environ.get('PDFSIZEOPT_LAUNCHER', str(ROOT / 'pdfsizeopt'))
     cases = ('rgb', 'gray', 'gray16', 'two-colour-rgb', 'indexed', 'bilevel', 'stencil',
-             'soft-mask', 'colour-key', 'custom-decode', 'icc', 'cmyk',
+             'soft-mask', 'sparse-soft-mask', 'colour-key', 'custom-decode', 'icc', 'cmyk',
              'jpeg', 'jpeg2000')
     optimizers = ('none', 'oxipng', 'oxipng_zopfli', 'jbig2', 'default')
     results = []
@@ -167,8 +174,13 @@ def main():
                         new = after.pages[0].Resources.XObject.Im0
                         assert new.BitsPerComponent == 16
                         assert old.read_bytes() == new.read_bytes(), '16-bit samples changed'
-                if case == 'soft-mask':
+                if case in ('soft-mask', 'sparse-soft-mask'):
                     assert '/SMask' in primary[0]['dict'], 'soft mask lost'
+                    with pikepdf.Pdf.open(source) as before, pikepdf.Pdf.open(output) as after:
+                        old = before.pages[0].Resources.XObject.Im0.SMask
+                        new = after.pages[0].Resources.XObject.Im0.SMask
+                        assert new.ColorSpace == pikepdf.Name.DeviceGray, 'mask colour space changed'
+                        assert old.read_bytes() == new.read_bytes(), 'mask samples changed'
                 if special:
                     assert base64.b64decode(primary[0]['data']) == special, 'payload changed'
             except subprocess.CalledProcessError as error:

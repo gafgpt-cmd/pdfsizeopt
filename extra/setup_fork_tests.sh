@@ -10,10 +10,12 @@ mkdir -p .runtime/bin
 jobs="${BUILD_JOBS:-4}"
 download() {
   local target="$1" digest="$2" url="$3"
-  if ! test -f "$target"; then
-    curl -fL --retry 2 --connect-timeout 10 --max-time 180 -o "$target" "$url"
+  if printf '%s  %s\n' "$digest" "$target" | sha256sum -c --status - 2>/dev/null; then
+    return
   fi
-  printf '%s  %s\n' "$digest" "$target" | sha256sum -c -
+  curl -fL --retry 2 --connect-timeout 10 --max-time 600 -o "$target.part" "$url"
+  printf '%s  %s\n' "$digest" "$target.part" | sha256sum -c -
+  mv -f "$target.part" "$target"
 }
 checkout() {
   local directory="$1" repository="$2" revision="$3"

@@ -28,7 +28,10 @@ and Python packages use `uv.lock`. The supported target is Linux x86_64.
 - PNGOUT: Oxipng and its Zopfli mode compete with the original image.
   The proprietary PNGOUT executable is no longer installed or required.
 - Python 2 executable generator: standard-library `zipapp`. The archive still
-  requires the locked pikepdf environment and native programs.
+  requires the locked pikepdf environment and native programs; launched
+  directly, it selects `PDFSIZEOPT_PYTHON`, then the adjacent `.venv`.
+- Downloads are published only after their SHA-256 pin matches; a partial or
+  corrupt cached archive is fetched again.
 - Ghostscript private font operators: supported font dictionaries and current
   CFF loader. SAFER remains enabled; temporary file access is granted explicitly.
 

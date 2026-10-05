@@ -361,7 +361,7 @@ def ParseCffDict(data, start=0, end=None):
       operands.append(ord(data[i]) << 24 | ord(data[i + 1]) << 16 |
                       ord(data[i + 2]) << 8 | ord(data[i + 3]))
       if operands[-1] >= 0x80000000:
-        operands[-1] = int(operands[-1] & 0x100000000)
+        operands[-1] -= 0x100000000
       i += 4
     elif b0 == 30:
       real_chars = []

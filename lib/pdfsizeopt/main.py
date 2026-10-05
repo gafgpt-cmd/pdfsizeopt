@@ -7004,11 +7004,13 @@ class PdfData(object):
         'optipng_gray_flags': '',
         'sam2p_np_gray_flags': '',
         'sam2p_pr_gray_flags': '',
+        'oxipng_gray_flags': '',
     }
     if need_gray:
       cmd_values_dict['pngout_gray_flags'] = '-c0 '
       # -nc: No color type reduction.
       cmd_values_dict['optipng_gray_flags'] = '-nc -np '
+      cmd_values_dict['oxipng_gray_flags'] = '--nc '
       cmd_values_dict['sam2p_np_gray_flags'] = '-s Gray1:Gray2:Gray4:Gray8:stop '
       cmd_values_dict['sam2p_pr_gray_flags'] = '-s Gray1:Gray2:Gray4:Gray8:stop '
     else:
@@ -7774,8 +7776,9 @@ class PdfData(object):
         rendered_image_is_inverted = obj_images[-1][1].is_inverted
         assert rendered_image_file_name is not None
         assert rendered_image_file_name.endswith('.png')
+        np_item = None
         if sam2p_np_pattern is not None or png_reduction_pattern is not None:
-          obj_images.append(self.ConvertImage(
+          np_item = self.ConvertImage(
               sourcefn=rendered_image_file_name,
               is_inverted=rendered_image_is_inverted,
               need_gray=(obj_num in force_grayscale_obj_nums),
@@ -7794,7 +7797,9 @@ class PdfData(object):
               # * We specify `sam2p -j:quiet' unconditionally, because the
               #   console output of sam2p is useless. (Ignored by imgdataopt.)
               cmd_pattern=sam2p_np_pattern or png_reduction_pattern,
-              cmd_name='sam2p_np' if sam2p_np_pattern else 'oxipng_reduce'))
+              cmd_name='sam2p_np' if sam2p_np_pattern else 'oxipng_reduce')
+        if np_item is not None:
+          obj_images.append(np_item)
           for _, old_image in obj_images[:-2]:
             if old_image.file_name is not None:
               os.remove(old_image.file_name)
@@ -7849,7 +7854,7 @@ class PdfData(object):
           np_image_color_type = np_image.color_type
           is_oi_reduced = False
           if sam2p_pr_pattern is None or do_save_oi_fast:
-            is_oi_reduced = sam2p_np_pattern is None
+            is_oi_reduced = np_item is not None and sam2p_np_pattern is None
             # No need for need_gray=..., sam2p_np has already done it.
             # TODO(pts): Can we use rendered_image_file_name (a .png)
             #            instead of np_image here, thus not having to save a
@@ -9532,12 +9537,12 @@ IMAGE_OPTIMIZER_CMD_MAP = {
     'optipng':  'optipng %(sourcefnq)s -o4 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',
     'optipng4': 'optipng %(sourcefnq)s -o4 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',
     'optipng7': 'optipng %(sourcefnq)s -o7 -fix -force %(optipng_gray_flags)s-out %(targetfnq)s',  # Slowest.
-    'oxipng': ('oxipng --interlace 0 --quiet --strip safe -o max -- '
-               '%(targetfnq)s'),
+    'oxipng': ('oxipng --interlace 0 --quiet --strip safe -o max '
+               '%(oxipng_gray_flags)s-- %(targetfnq)s'),
     'oxipng_zopfli': ('oxipng --interlace 0 --quiet --strip safe -o max '
-                       '--zopfli --fast -- %(targetfnq)s'),
-    'oxipng_ect': ('oxipng --interlace 0 --quiet --strip safe -o max -- '
-                   '%(targetfnq)s && ect -9 -strip --mt-deflate '
+                       '--zopfli --fast %(oxipng_gray_flags)s-- %(targetfnq)s'),
+    'oxipng_ect': ('oxipng --interlace 0 --quiet --strip safe -o max '
+                   '%(oxipng_gray_flags)s-- %(targetfnq)s && ect -9 -strip --mt-deflate '
                    '%(targetfnq)s'),
     'ect': 'ect -9 -strip --mt-deflate %(targetfnq)s',
     'ECT': 'ECT -9 -strip --mt-deflate %(targetfnq)s',

@@ -2,6 +2,8 @@
 
 import os
 import base64
+import hashlib
+import shutil
 import json
 import subprocess
 from pathlib import Path
@@ -11,7 +13,8 @@ import unittest
 from unittest import mock
 import zlib
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'lib'))
 from pdfsizeopt import binary, cff, image_filters, main
 
 
@@ -123,6 +126,91 @@ print(json.dumps(calls))
         self.assertEqual('dvipdfmx', calls[-1][0])
         self.assertIn('ptmr8r 8r Times-Roman',
                       (work / 'dvipdfmx_base.map').read_text(encoding='utf-8'))
+
+    def test_cff_dict_signed_integer_boundaries_round_trip(self):
+        values = [-2 ** 31, -40000, -32769, -32768, -1132, -1131, -108, -107,
+                  107, 108, 1131, 1132, 32767, 32768, 40000, 2 ** 31 - 1]
+        self.assertEqual({5: values},
+                         cff.ParseCffDict(cff.SerializeCffDict({5: values})))
+
+    def write_stub(self, path, body):
+        path.write_text('#!/bin/sh\n' + body, encoding='utf-8')
+        path.chmod(0o755)
+
+    def test_archive_launches_directly_with_project_environment(self):
+        work = Path(tempfile.mkdtemp())
+        shutil.copytree(ROOT / 'lib', work / 'lib')
+        shutil.copy(ROOT / 'mksingle.py', work)
+        (work / '.venv').symlink_to((ROOT / '.venv').resolve())
+        subprocess.run([sys.executable, str(work / 'mksingle.py')], check=True,
+                       capture_output=True, timeout=60)
+        stubs = work / 'stubs'
+        stubs.mkdir()
+        self.write_stub(stubs / 'python3', 'echo system-python >&2; exit 97\n')
+        self.write_stub(stubs / 'explicit', 'for a; do echo "<$a>"; done\n')
+        (work / 'link.single').symlink_to(work / 'pdfsizeopt.single')
+        env = dict(os.environ, PATH=str(stubs) + os.pathsep + os.environ['PATH'],
+                   HOME=str(work))
+        env.pop('PDFSIZEOPT_PYTHON', None)
+        for launcher in ('pdfsizeopt.single', 'link.single'):
+            result = subprocess.run(['./' + launcher, '--version'], cwd=work,
+                                    env=env, capture_output=True, text=True,
+                                    timeout=60)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn('This is pdfsizeopt', result.stdout + result.stderr)
+        result = subprocess.run(
+            [str(work / 'pdfsizeopt.single'), 'a b', 'é'],
+            env=dict(env, PDFSIZEOPT_PYTHON=str(stubs / 'explicit')),
+            capture_output=True, text=True, timeout=60, check=True)
+        self.assertEqual(['<-->', '<%s>' % (work / 'pdfsizeopt.single'),
+                          '<a b>', '<é>'], result.stdout.splitlines())
+        result = subprocess.run(
+            [sys.executable, str(work / 'pdfsizeopt.single'), '--version'],
+            env=env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def run_setup_download(self, work, mode):
+        env = dict(os.environ, CURL_MODE=mode,
+                   GOOD_FILE=str(ROOT / '.runtime' / 'uv-0.12.23.tar.gz'),
+                   PATH=str(work / 'stubs') + os.pathsep + os.environ['PATH'])
+        return subprocess.run(['bash', 'extra/setup_fork_tests.sh'], cwd=work,
+                              env=env, capture_output=True, text=True,
+                              timeout=120)
+
+    def test_setup_download_publishes_only_verified_archives(self):
+        good = (ROOT / '.runtime' / 'uv-0.12.23.tar.gz').read_bytes()
+        work = Path(tempfile.mkdtemp())
+        (work / 'extra').mkdir()
+        shutil.copy(ROOT / 'extra' / 'setup_fork_tests.sh', work / 'extra')
+        stubs = work / 'stubs'
+        stubs.mkdir()
+        for tool in ('git', 'cmake', 'make', 'gcc', 'g++', 'pkg-config', 'unzip'):
+            self.write_stub(stubs / tool, 'exit 0\n')
+        self.write_stub(stubs / 'curl', (
+            'while test "$1" != -o; do shift; done\n'
+            'if test "$CURL_MODE" = partial; then\n'
+            '  printf partial > "$2"; exit 28\n'
+            'fi\n'
+            'cp "$GOOD_FILE" "$2"\n'))
+        self.write_stub(stubs / 'tar', 'echo extracted >> "$PWD/tar.log"; exit 3\n')
+        target = work / '.runtime' / 'uv-0.12.23.tar.gz'
+
+        result = self.run_setup_download(work, 'partial')
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(target.exists())
+        self.assertFalse((work / 'tar.log').exists())
+
+        target.write_bytes(b'corrupt cached download')
+        result = self.run_setup_download(work, 'partial')
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(b'corrupt cached download', target.read_bytes())
+        self.assertFalse((work / 'tar.log').exists())
+
+        result = self.run_setup_download(work, 'good')
+        self.assertEqual(3, result.returncode, result.stderr)
+        self.assertEqual(hashlib.sha256(good).digest(),
+                         hashlib.sha256(target.read_bytes()).digest())
+        self.assertEqual('extracted\n', (work / 'tar.log').read_text())
 
     def test_octet_file_object_loading(self):
         path = Path(__file__).resolve().parent / 'small.pdf'

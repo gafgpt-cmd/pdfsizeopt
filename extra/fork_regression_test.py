@@ -240,6 +240,50 @@ class ForkRegressionTest(unittest.TestCase):
       self.assertEqual(''.join('\0' + row for row in rows),
                        binary.decompress(pdf.objs[1].stream))
 
+  def test_rejected_gray_reduction_keeps_soft_mask_samples(self):
+    samples = ''.join(chr((0, 100, 255)[(x // 8 + y // 8) % 3])
+                      for y in range(64) for x in range(64))
+    pdf = main.PdfData()
+    image = main.PdfObj(None)
+    image.head = ('<</Subtype/Image/Width 1/Height 1/BitsPerComponent 8'
+                  '/ColorSpace/DeviceRGB/Filter/FlateDecode/SMask 2 0 R>>')
+    image.stream = binary.compress('\xff\x00\x00')
+    mask = main.PdfObj(None)
+    mask.head = ('<</Subtype/Image/Width 64/Height 64/BitsPerComponent 8'
+                 '/ColorSpace/DeviceGray/Filter/FlateDecode>>')
+    mask.stream = binary.compress(samples)
+    for obj in (image, mask):
+      obj.Set('Length', len(obj.stream))
+    pdf.objs = {1: image, 2: mask}
+    rgb = main.ImageData()
+    rgb.width = rgb.height = 64
+    rgb.bpc = 8
+    rgb.color_type = 'rgb'
+    rgb.is_inverted = rgb.is_interlaced = False
+    rgb.compression = 'zip-png'
+    rgb.idat = binary.compress(''.join(
+        '\0' + ''.join(c * 3 for c in samples[y * 64:(y + 1) * 64])
+        for y in range(64)))
+
+    calls = []
+
+    def run(cmd):
+      args = shlex.split(cmd)
+      calls.append(args)
+      if '.img-2.' in args[-1]:
+        self.assertIn('--nc', args)
+        rgb.SavePng(args[-1])
+      return 0
+
+    self.patch(main.os, 'system', run)
+    pdf.OptimizeImages([main.IMAGE_OPTIMIZER_CMD_MAP['oxipng']], False)
+    self.assertEqual(3, len(calls))
+    result = main.ImageData().LoadPdfImageObj(pdf.objs[2], True)
+    self.assertEqual(('gray', 8), (result.color_type, result.bpc))
+    if result.compression != 'zip':
+      result.CompressWithoutPredictor()
+    self.assertEqual(samples, binary.decompress(result.idat))
+
   def test_oxipng_reduction_runs_once(self):
     pdf = self.predictor_pdf(['\x10\x20\x30\x40', '\x50\x60\x70\x80'])
     calls = self.record_optimizers()

@@ -44,6 +44,7 @@ installed; they are outside the supported default toolchain.
 ```sh
 .venv/bin/python mksingle.py
 .venv/bin/python pdfsizeopt.single input.pdf output.pdf
+./pdfsizeopt.single input.pdf output.pdf  # Uses the adjacent .venv.
 bash extra/run_fork_tests.sh
 ```
 
@@ -56,7 +57,12 @@ suite, including embedded fonts and paths containing spaces and Unicode.
 docker build -f docker/Dockerfile -t pdfsizeopt:modern .
 docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/work" \
   pdfsizeopt:modern input.pdf output.pdf
+docker run --rm --user root -w /opt/pdfsizeopt --entrypoint bash \
+  pdfsizeopt:modern extra/run_fork_tests.sh
 ```
+
+The container runs as an unprivileged user by default; the test suite rebuilds
+the archive inside the image, so it needs `--user root`.
 
 Codespaces can use the same installation commands in this checkout. Use the
 repository's source or locally built archive, rather than downloading the old
