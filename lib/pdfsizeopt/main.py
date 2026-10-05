@@ -6986,7 +6986,7 @@ class PdfData(object):
   def ConvertImage(cls, sourcefn, targetfn, cmd_pattern, cmd_name,
                    do_just_read=False, return_none_if_status=None,
                    do_remove_targetfn_on_success=True, is_inverted=False,
-                   need_gray=False):
+                   need_gray=False, do_reject_failure=False):
     """Converts sourcefn to targetfn using cmd_pattern, returns
     (cmd_name, image_data) pair."""
     if not isinstance(sourcefn, str):
@@ -7046,6 +7046,12 @@ class PdfData(object):
     status = os.system(RedirectOutput(cmd, mode=romode))
     if (return_none_if_status is not None and
         status == return_none_if_status):
+      EnsureRemoved(targetfn)
+      return None
+    if status and do_reject_failure:
+      LogProportionalInfo(
+          'image converter %s failed (status=0x%x), ignoring' %
+          (cmd_name, status))
       EnsureRemoved(targetfn)
       return None
     if status:
@@ -7797,7 +7803,8 @@ class PdfData(object):
               # * We specify `sam2p -j:quiet' unconditionally, because the
               #   console output of sam2p is useless. (Ignored by imgdataopt.)
               cmd_pattern=sam2p_np_pattern or png_reduction_pattern,
-              cmd_name='sam2p_np' if sam2p_np_pattern else 'oxipng_reduce')
+              cmd_name='sam2p_np' if sam2p_np_pattern else 'oxipng_reduce',
+              do_reject_failure=sam2p_np_pattern is None)
         if np_item is not None:
           obj_images.append(np_item)
           for _, old_image in obj_images[:-2]:
@@ -7927,7 +7934,8 @@ class PdfData(object):
                 targetfn=TMP_PREFIX + 'img-%d.%s.png' % (obj_num, cmd_name),
                 cmd_pattern=cmd_pattern,
                 cmd_name=cmd_name,
-                return_none_if_status=return_none_if_status)
+                return_none_if_status=return_none_if_status,
+                do_reject_failure='oxipng' in cmd_name)
             if image_item is not None:
               obj_images.append(image_item)
               image_item = None

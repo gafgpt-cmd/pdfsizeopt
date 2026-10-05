@@ -295,6 +295,27 @@ class ForkRegressionTest(unittest.TestCase):
                         'fake %(sourcefnq)s %(targetfnq)s'], False)
     self.assertEqual(['oxipng', 'fake'], calls)
 
+  def test_rejected_oxipng_on_mismatched_rows_keeps_original_samples(self):
+    os.environ['PATH'] = self.env['PATH']
+    self.patch(main.os, 'system', next(
+        value for _, name, value in self.saved if name == 'system'))
+    rows = [''.join(chr((x * 7 + y * 13) & 255) for x in range(64))
+            for y in range(65)]
+    for row_count in (65, 63):
+      pdf = main.PdfData()
+      obj = main.PdfObj(None)
+      obj.head = ('<</Subtype/Image/Width 64/Height 64/BitsPerComponent 8'
+                  '/ColorSpace/DeviceGray/Filter/FlateDecode'
+                  '/DecodeParms<</Predictor 15/Colors 1/Columns 64>>>>')
+      data = ''.join('\0' + row for row in rows[:row_count])
+      obj.stream = binary.compress(data)
+      obj.Set('Length', len(obj.stream))
+      pdf.objs = {1: obj}
+      pdf.OptimizeImages([main.IMAGE_OPTIMIZER_CMD_MAP['oxipng'],
+                          main.IMAGE_OPTIMIZER_CMD_MAP['oxipng_zopfli']],
+                         False)
+      self.assertEqual(data, binary.decompress(pdf.objs[1].stream))
+
 
 if __name__ == '__main__':
   unittest.main(verbosity=2)
