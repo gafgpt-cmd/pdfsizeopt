@@ -253,8 +253,8 @@ GENERIC = r'''
 % <fontname> TryFindFont <font-dict> true
 % <fontname> TryFindFont <false>
 /TryFindFont {
-  .FontDirectory 1 index .fontknownget {
-    exch pop true
+  FontDirectory 1 index known {
+    FontDirectory exch get true
   } {
     pop false
   } ifelse
@@ -274,7 +274,6 @@ TYPE1C_CONVERTER = r'''
   /EmbedAllFonts true
   /Optimize true
 >> setdistillerparams
-.setpdfwrite
 
 /eexec {
   1 index /FontName get userdict exch
@@ -459,32 +458,9 @@ TYPE1C_PARSER = r'''
   } ifelse
 } bind def
 
-% /LoadCff {
-%   /FontSetInit /ProcSet findresource begin //true //false ReadData } bind def
-% but some autodetection of `//false'' above based on the Ghostscript version:
-% Since gs 8.64:
-%   pdfdict /readType1C get -->
-%   {1 --index-- --exch-- PDFfile --fileposition-- 3 1 --roll-- --dup-- true
-%   resolvestream --dup-- readfontfilter 3 --index-- /FontDescriptor oget
-%   /FontName oget 1 --index-- /FontSetInit /ProcSet --findresource-- --begin--
-%   true false ReadData {--exch-- --pop-- --exit--} --forall-- 7 1 --roll--
-%   --closefile-- --closefile-- --pop-- PDFfile 3 -1 --roll--
-%   --setfileposition-- --pop-- --pop--}
-% Till gs 8.61:
-%   GS_PDF_ProcSet /FRD get -->
-%   {/FontSetInit /ProcSet findresource begin //true ReadData}
-GS_PDF_ProcSet /FRD .knownget not { pdfdict /readType1C get } if
-dup /FontSetInit FindItem
-  dup 0 lt { /MissingFontSetInit /invalidfileaccess signalerror } if
-1 index /ReadData FindItem
-  dup 0 lt { /MissingReadData /invalidfileaccess signalerror } if
-1 index sub 1 add getinterval
-cvx bind /LoadCff exch def
-% Now we have one of these:
-% /LoadCff { /FontSetInit /ProcSet findresource begin //true         ReadData
-%   pop } bind def  % gs 8.62 or earlier
-% /LoadCff { /FontSetInit /ProcSet findresource begin //true //false ReadData
-%   pop } bind def  % gs 8.63 or later
+/LoadCff {
+  /FontSetInit /ProcSet findresource begin true false ReadData
+} bind def
 
 /stream {  % <streamdict> stream -
   ReadStreamFile DecompressStreamFileWithReusableStreamDecode
@@ -547,7 +523,6 @@ TYPE1C_GENERATOR = r'''
   /EmbedAllFonts true
   /Optimize true
 >> setdistillerparams
-.setpdfwrite
 
 /endobj {  % <streamdict> endobj -
   % Undefine all fonts before running our font program.

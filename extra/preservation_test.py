@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import zlib
 
+import pikepdf
 from PIL import Image, ImageCms
 
 
@@ -41,6 +42,10 @@ def fixture(path, case):
     if case == 'gray':
         colors = b'/ColorSpace/DeviceGray/BitsPerComponent 8'
         raw = bytes(x * 8 for y in range(size) for x in range(size))
+    elif case == 'gray16':
+        colors = b'/ColorSpace/DeviceGray/BitsPerComponent 16'
+        raw = b''.join((x * 2000 + y).to_bytes(2, 'big')
+                       for y in range(size) for x in range(size))
     elif case in ('bilevel', 'stencil'):
         colors = b'/ColorSpace/DeviceGray/BitsPerComponent 1'
         raw = b'\xaa\x55\xaa\x55' * size
@@ -56,6 +61,13 @@ def fixture(path, case):
         raw = bytes(x % 4 for y in range(size) for x in range(size))
     elif case == 'soft-mask':
         extra = b'/SMask 6 0 R'
+    elif case == 'sparse-soft-mask':
+        extra = b'/SMask 6 0 R'
+        mask = stream(b'/Subtype/Image/Width 64/Height 64/ColorSpace/DeviceGray'
+                      b'/BitsPerComponent 8/Filter/FlateDecode',
+                      zlib.compress(bytes((0, 100, 255)[(x // 8 + y // 8) % 3]
+                                          for y in range(64)
+                                          for x in range(64))))
     elif case == 'colour-key':
         extra = b'/Mask[0 0 0 255 120 120]'
     elif case == 'custom-decode':
@@ -120,12 +132,12 @@ def main():
     env = os.environ.copy()
     env['HOME'] = str(work)
     env['PATH'] = str(ROOT / '.runtime/bin') + os.pathsep + env['PATH']
-    python2 = os.environ.get('PYTHON2', str(ROOT / '.runtime/python2/bin/python2.7'))
+    python3 = os.environ.get('PYTHON3', str(ROOT / '.venv/bin/python'))
     launcher = os.environ.get('PDFSIZEOPT_LAUNCHER', str(ROOT / 'pdfsizeopt'))
-    cases = ('rgb', 'gray', 'two-colour-rgb', 'indexed', 'bilevel', 'stencil',
-             'soft-mask', 'colour-key', 'custom-decode', 'icc', 'cmyk',
+    cases = ('rgb', 'gray', 'gray16', 'two-colour-rgb', 'indexed', 'bilevel', 'stencil',
+             'soft-mask', 'sparse-soft-mask', 'colour-key', 'custom-decode', 'icc', 'cmyk',
              'jpeg', 'jpeg2000')
-    optimizers = ('none', 'oxipng', 'ect', 'ECT', 'oxipng_ect', 'default')
+    optimizers = ('none', 'oxipng', 'oxipng_zopfli', 'jbig2', 'default')
     results = []
     for case in cases:
         source = work / (case + '.pdf')
@@ -138,7 +150,7 @@ def main():
             expected[dpi] = prefix.with_suffix('.ppm').read_bytes()
         for optimizer in optimizers:
             output = work / ('%s-%s.pdf' % (case, optimizer))
-            args = [python2, launcher, '--use-multivalent=no']
+            args = [python3, launcher, '--use-multivalent=no']
             if optimizer != 'default':
                 args.append('--use-image-optimizer=' + optimizer)
             args += [str(source), str(output)]
@@ -156,8 +168,19 @@ def main():
                            if image['dict'].get('/Intent') == '/RelativeColorimetric']
                 assert len(primary) == 1, (case, optimizer, 'render intent lost')
                 assert '/Metadata' in primary[0]['dict'], (case, optimizer, 'metadata lost')
-                if case == 'soft-mask':
+                if case == 'gray16':
+                    with pikepdf.Pdf.open(source) as before, pikepdf.Pdf.open(output) as after:
+                        old = before.pages[0].Resources.XObject.Im0
+                        new = after.pages[0].Resources.XObject.Im0
+                        assert new.BitsPerComponent == 16
+                        assert old.read_bytes() == new.read_bytes(), '16-bit samples changed'
+                if case in ('soft-mask', 'sparse-soft-mask'):
                     assert '/SMask' in primary[0]['dict'], 'soft mask lost'
+                    with pikepdf.Pdf.open(source) as before, pikepdf.Pdf.open(output) as after:
+                        old = before.pages[0].Resources.XObject.Im0.SMask
+                        new = after.pages[0].Resources.XObject.Im0.SMask
+                        assert new.ColorSpace == pikepdf.Name.DeviceGray, 'mask colour space changed'
+                        assert old.read_bytes() == new.read_bytes(), 'mask samples changed'
                 if special:
                     assert base64.b64decode(primary[0]['data']) == special, 'payload changed'
             except subprocess.CalledProcessError as error:
@@ -171,15 +194,17 @@ def main():
     original = source.read_bytes()
     broken = work / 'broken-compressor.py'
     broken.write_text("import sys,zlib\nopen(sys.argv[1], 'wb').write("
-                      "zlib.compress('wrong pixel data'))\n", encoding='utf-8')
+                      "zlib.compress(b'wrong pixel data'))\n", encoding='utf-8')
     import shlex
-    command = '%s %s %%(targetfnq)s' % (shlex.quote(python2), shlex.quote(str(broken)))
+    command = '%s %s %%(targetfnq)s' % (shlex.quote(python3), shlex.quote(str(broken)))
     for same_path in (False, True):
         output = source if same_path else work / 'existing-output.pdf'
         if not same_path:
             output.write_bytes(b'keep existing output')
         before = output.read_bytes()
-        result = subprocess.run([python2, launcher, '--use-multivalent=no',
+        # Argument vector, no shell: environment selects the test interpreter only.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+        result = subprocess.run([python3, launcher, '--use-multivalent=no',
                                  '--use-image-optimizer=none',
                                  '--use-zlib-optimizer=' + command,
                                  str(source), str(output)], env=env,

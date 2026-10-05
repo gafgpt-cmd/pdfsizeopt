@@ -1,25 +1,19 @@
-# by pts@fazekas.hu at Wed Oct 11 15:24:03 CEST 2017
-#
-# Run:
-#
-#   $ docker run -v "$PWD:/workdir" -u "$(id -u):$(id -g)" --rm -it ptspts/pdfsizeopt pdfsizeopt input.pdf output.pdf
-#
-# Building in a separate `context' directory so that only a few bytes have
-# to be sent to the Docker daemon.
-#
-
-FROM scratch
-MAINTAINER pts@fazekas.hu
-LABEL version=1
-CMD ["sh"]
-ADD busybox /bin/
-#RUN ["busybox", "chmod", "755", "/bin/busybox"]
-RUN ["busybox", "ln", "-s", "/", "/usr"]
-RUN ["busybox", "--install", "-s"]
-
-ADD pdfsizeopt_libexec/gs pdfsizeopt_libexec/jbig2 pdfsizeopt_libexec/sam2p pdfsizeopt_libexec/pngout pdfsizeopt_libexec/python /bin/
-#RUN cd /bin && chmod 755 gs jbig2 png22pnm sam2p pngout python
-# Run this ADD last, to improve caching.
-ADD pdfsizeopt.single /bin/pdfsizeopt
-#RUN cd /bin && chmod 755 pdfsizeopt
-WORKDIR /workdir
+FROM python:3.14.8-slim-trixie@sha256:c3e521df8b2b498a7a682e7e18676771cb80c6b75b8699af886b2d554ce40151
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake pkg-config nasm curl git unzip ca-certificates \
+    zlib1g-dev libssl-dev libffi-dev libjpeg-dev libpng-dev libtiff-dev \
+    libleptonica-dev libfreetype6-dev libfontconfig1-dev libopenjp2-7-dev \
+    liblcms2-dev libbrotli-dev libharfbuzz-dev libcairo2-dev
+RUN useradd --system --uid 10001 --user-group --no-create-home \
+    --home-dir /work --shell /usr/sbin/nologin pdfsizeopt
+WORKDIR /opt/pdfsizeopt
+COPY pyproject.toml uv.lock ./
+COPY extra/setup_fork_tests.sh extra/
+ENV PYTHON3=/usr/local/bin/python3
+RUN bash extra/setup_fork_tests.sh
+ENV PYTHON3=/opt/pdfsizeopt/.venv/bin/python
+COPY . .
+RUN .venv/bin/python mksingle.py
+USER pdfsizeopt
+WORKDIR /work
+ENTRYPOINT ["/opt/pdfsizeopt/pdfsizeopt"]

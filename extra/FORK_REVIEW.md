@@ -37,3 +37,37 @@ Semgrep p/python and p/owasp-top-ten: zero findings and zero scan errors with
 three new shell scripts instead. New Python tests pass pycodestyle with the
 repository's two-space convention and standard W503 exemption. No generated
 program edited manually. Source fixture PDFs only; no private documents read.
+
+## Python 3 / native-tool migration review (2026-10-04)
+
+Reviewed the migration diff and affected parser, image, font, process, file and
+launcher contracts. Reproduced and fixed:
+
+| Finding | Evidence | Resolution |
+|---|---|---|
+| Current Ghostscript rejects fallback decoder input | ASCII85 stream containing all 256 byte values raised `/invalidfileaccess` | Exact temporary input read grant; ASCII85, ASCIIHex and RunLength decode byte-for-byte under SAFER. |
+| Python 3 clears exception variables after `except` | Failed `Rename` raised `UnboundLocalError` | Report the original error inside its handler; preserve both files if atomic replacement fails. Regression injects `PermissionError`. |
+| Font numeric comparison was asymmetric | `IsCffValueEqual('1', '100')` returned true | Compare absolute difference; test both directions and a value within tolerance. |
+| Optional font PostScript comparison crashed | A missing dictionary compared with a present dictionary raised `NameError: false` | Correct boolean result; regression checks the reported difference. |
+| ECT 0.9.5 crashes on a larger PNG | Serial and threaded runs both terminated with SIGSEGV | Remove ECT from the default installation; Oxipng/Zopfli succeeds with identical decoded pixels. Local input is not included in the repository. |
+
+The Python 3 TeX helper also advances after attached `-fmap` arguments and uses
+argument-vector lookup. Its regression stubs all external execution and checks
+that map names containing spaces survive intact.
+
+Semgrep scanned 29 files with the Python/security-audit configs. Two reviewed
+false positives have scoped annotations: intentional quoted shell command
+execution and a test subprocess that uses an argument vector without a shell.
+The registry's `p/bash` config returned 404; ShellCheck covers shell scripts.
+Two Semgrep rules timed out on `main.py`; subprocess boundaries were reviewed
+manually, and the other timed-out rule concerns boto3, which this module does
+not use. ShellCheck's SC2016 is intentionally excluded for the installer's
+literal ELF `$ORIGIN` runtime-library path.
+
+Validation covers normal/empty/malformed parser inputs through the retained
+upstream suite, all 256 byte values and packed predictor padding, Unicode
+paths, failed compression/rename with existing files, JPEG/JP2 payloads,
+16-bit samples, metadata/masks, and embedded Type 1/CFF fonts. Native source
+and archive preservation suites and clean-container checks are driven by
+`extra/run_fork_tests.sh`. Runtime dependencies are pinned in the installer and
+`uv.lock`; obsolete bundled runtimes are not searched.

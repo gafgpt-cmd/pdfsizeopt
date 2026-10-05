@@ -13,8 +13,8 @@ T-3B has no open PRs. Original has seven:
 | [186](https://github.com/pts/pdfsizeopt/pull/186) | Already inherited from T-3B; preservation bugs repaired below. |
 | [181](https://github.com/pts/pdfsizeopt/pull/181) | README typo integrated. |
 | [180](https://github.com/pts/pdfsizeopt/pull/180) | Lowercase `ect` executable supported; uppercase alias retained. |
-| [179](https://github.com/pts/pdfsizeopt/pull/179) | Threaded Deflate enabled for both ECT aliases. |
-| [178](https://github.com/pts/pdfsizeopt/pull/178) | Oxipng and Oxipng/ECT chain integrated, optional; use `--strip safe`; preflight both chain dependencies. |
+| [179](https://github.com/pts/pdfsizeopt/pull/179) | ECT aliases integrated; see toolchain record for current execution policy. |
+| [178](https://github.com/pts/pdfsizeopt/pull/178) | Oxipng and Oxipng/ECT chain integrated; ECT now opt-in; use `--strip safe`; preflight both chain dependencies. |
 | [171](https://github.com/pts/pdfsizeopt/pull/171) | Already functionally satisfied by upstream 2bab160: v9 runtime and corrected executable list. Blanket chmod not needed. |
 | [165](https://github.com/pts/pdfsizeopt/pull/165) | Codespaces instructions adapted to execute this checkout, not download old pts code. |
 
@@ -27,41 +27,43 @@ T-3B has no open PRs. Original has seven:
 | `lib/pdfsizeopt/main.py` OptimizeImages | Skip unavailable optimizers before mutation; stage metadata changes on a copy so skipped images retain SMask, Metadata and Intent. |
 | `lib/pdfsizeopt/main.py` GenerateXrefStream | Retain /Index when the type field is omitted; zero padding would mark reserved object 0 as in-use at byte offset zero. Caught by qpdf 11.x on Ubuntu CI. |
 | `lib/pdfsizeopt/main.py` _RunMultivalent | Remove T-3B's added unconditional `-nostruct -nowebcap`. Core-font unembedding remains explicit/default-off. |
-| `README.md` | PR181 typo, fork-aware Codespaces/build instructions. |
+| `lib/pdfsizeopt/main.py` Python runtime | Python 3 syntax, key-based sorting and integer division; explicit octet/file/struct/zlib boundaries; native file-object loading; failed atomic rename preserves existing files. |
+| `lib/pdfsizeopt/main.py` image candidates | Oxipng/Zopfli defaults replace sam2p/PNGOUT/ECT; PNG reduction prepass (gray kept gray via `--nc`; rejected or failed Oxipng candidates are skipped, falling back to the rendered image) replaces repeat Oxipng run; qpdf predictor removal skipped unless sizes match exactly; retain original candidate. |
+| `lib/pdfsizeopt/main.py` Ghostscript | Exact temporary read/write grants under SAFER; `.runtime/bin` replaces legacy bundle discovery. |
+| `lib/pdfsizeopt/cff.py` | Python 3 integer/byte/hex boundaries, sorting, font-name error handling; symmetric numeric font comparison and optional PostScript difference detection; signed 32-bit dict operands. |
+| `lib/pdfsizeopt/psproc.py` | Modern Ghostscript FontDirectory/CFF loader; remove obsolete `.setpdfwrite`. |
+| `pdfsizeopt`, `mksingle.py` | Python 3/project environment launcher; standard zipapp generator with the same interpreter selection prepended. |
+| `pdfsizeopt_test.py`, `extra/dvipdfmx_fontfix.py` | Python 3 syntax and byte contracts; UTF-8 helper file I/O, attached-map argument progress and argument-vector lookup. |
+| `README.md`, `docker/*`, `docker_extraimgopt/*` | Current toolchain installation and unprivileged container, fork-aware Codespaces instructions. |
 | `.gitignore`, `pdfsizeopt.single` | Generated single-file package is untracked and built from source, never edited by hand. |
 
-Own files: `extra/*fork*`, `extra/preservation_test.py`,
-`extra/test-requirements.txt`, `.github/workflows/ci.yml`, this ledger.
-Architect reviewed incoming diffs before integration: conditional GO with the
-preservation repairs above. No Python 3 migration or lossy mode added.
+Own files: `lib/pdfsizeopt/{binary,cli,image_filters}.py`, `pyproject.toml`,
+`uv.lock`, `.dockerignore`, `docs/TOOLCHAIN.md`, `extra/*fork*`,
+`extra/{preservation,font_preservation,python3_regression}_test.py`,
+`.github/workflows/ci.yml`, this ledger and review evidence.
+Architect reviewed the earlier incoming PR diffs before integration: conditional
+GO with the preservation repairs above. Modernization adds Python 3 support;
+no lossy mode is added. No incoming upstream commits were present at its start.
 
 ## Build and verify
 
-Linux x86_64; compiler, make, CMake, curl, git, uv, qpdf, Poppler and advzip
-must be available. Setup keeps dependencies inside ignored `.runtime/` and
-`.venv/`; it does not install system packages.
+See `README.md` for operating-system build dependencies. Setup keeps pinned
+native tools inside ignored `.runtime/` and Python packages inside `.venv/`.
 
 ```sh
 bash extra/setup_fork_tests.sh
 bash extra/run_fork_tests.sh
+.venv/bin/python mksingle.py
 ```
 
-After setup, build only the distributable from the checkout root with:
+The runner exercises upstream parser/font tests, fork regressions, all-byte and
+predictor regressions, 15 image cases through five optimizer configurations,
+and embedded fonts with merging enabled and disabled. Both source and generated
+archive are checked. Assertions cover identical renders at 72/144 dpi,
+metadata, masks, text and unchanged JPEG/JP2 compressed payloads.
 
-```sh
-PATH="$PWD/.runtime/bin:$PATH" .runtime/python2/bin/python2.7 "$PWD/mksingle.py"
-```
-
-The runner executes upstream tests, fork regressions, and 13 synthetic PDF
-cases through six optimizer configurations. It builds `pdfsizeopt.single`
-with the existing generator, then repeats preservation tests through it.
-Assertions cover identical renders at 72/144 dpi, image metadata/intent,
-soft masks and unchanged JPEG/JP2 compressed payloads. These fixtures are
-evidence for the tested cases, not a guarantee for every possible PDF.
-
-For a source-only invocation: `./pdfsizeopt --use-multivalent=no in.pdf out.pdf`.
-Keep originals. `--do-remove-core-fonts=no` remains the default. Multivalent's
-legacy stripping behavior is not recommended for strict preservation.
+`./pdfsizeopt in.pdf out.pdf` uses the lossless default. Keep originals.
+Multivalent and core-font unembedding remain disabled by default.
 
 After committing, rehearse the entire patch set on current T-3B upstream:
 
