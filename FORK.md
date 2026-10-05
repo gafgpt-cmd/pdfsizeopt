@@ -1,7 +1,7 @@
 # pdfsizeopt fork maintenance
 
 Origin: `gafgpt-cmd/pdfsizeopt`. Upstream: `T-3B/pdfsizeopt`.
-Original: `pts/pdfsizeopt`. Both public remotes are push-disabled locally.
+Original: `pts/pdfsizeopt`. Upstream and original remotes are push-disabled locally.
 Base: `0af13e98d36205168b7699813da3cfddd019946b` (2026-08-22).
 
 ## PR inventory (2026-10-04)

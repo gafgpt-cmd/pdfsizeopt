@@ -96,12 +96,9 @@ pages at 72 and 144 dpi through both source and packaged launchers.
 - **`/undefined in --filter--` involving JBIG2:** the benchmarked main revision
   `fffd067d569b10b894ea76a68c00b78796359ca3` attempts to decode some existing
   JBIG2 images through a PostScript filter unavailable in modern Ghostscript.
-  Use `--do-optimize-images=no` to bypass that stage. The separate local branch
-  `fix/preserve-jbig2`, commit `26a7d7f6e2ac8e53cfed3db08f3d9134876173f7`,
-  preserves existing JBIG2 streams instead. Its local regression and
-  preservation checks passed, but it is not merged or available from a remote
-  branch as of 2026-10-05. The publication pipeline stopped at an external
-  validation-agent usage limit; the main-branch benchmark still records failures.
+  Use `--do-optimize-images=no` to bypass that stage. See the
+  [benchmark repair record](BENCHMARKS.md#preservation-results-and-the-discovered-regression)
+  for the separate repair's revision, validation results and merge status.
 - **Missing executables or Python dependencies:** rerun
   `bash extra/setup_fork_tests.sh` from this checkout. Use its launcher and
   project environment instead of the old upstream executable bundle.
