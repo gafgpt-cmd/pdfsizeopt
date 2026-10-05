@@ -61,3 +61,11 @@ On the original 13 small image fixtures, the new default produced 19,915 bytes
 in total versus 19,921 for the old default, with identical renders. A larger
 3.4 MB PNG that crashed ECT completed with Oxipng/Zopfli and retained identical
 decoded pixels. These are measured cases, not a universal compression ranking.
+
+## Public-document performance
+
+The [2026-10-05 benchmark](BENCHMARKS.md) compares the merged modern revision
+with the legacy toolchain under matched resource settings. It includes
+successful preservation checks, two timeout cases and an existing-JBIG2
+compatibility regression. See [usage](USAGE.md) for the faster lossless command,
+Zopfli's role and the JBIG2 workaround. The default still includes Zopfli.
