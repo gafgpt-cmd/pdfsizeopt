@@ -2,6 +2,8 @@
 
 import pikepdf
 
+DecodeError = pikepdf.PdfError
+
 
 def unfilter(data, predictor, colors, bits, columns):
   with pikepdf.Pdf.new() as pdf:

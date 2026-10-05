@@ -203,6 +203,54 @@ class ForkRegressionTest(unittest.TestCase):
     self.assertEqual('[1 3]', trailer.Get('Index'))
     self.assertEqual('\x0f\x41\x6d', trailer.stream)
 
+  def predictor_pdf(self, rows):
+    pdf = main.PdfData()
+    obj = main.PdfObj(None)
+    obj.head = ('<</Subtype/Image/Width 4/Height 2/BitsPerComponent 8'
+                '/ColorSpace/DeviceGray/Filter/FlateDecode'
+                '/DecodeParms<</Predictor 15/Colors 1/Columns 4>>>>')
+    obj.stream = binary.compress(''.join('\0' + row for row in rows))
+    obj.Set('Length', len(obj.stream))
+    pdf.objs = {1: obj}
+    return pdf
+
+  def record_optimizers(self):
+    calls = []
+
+    def run(cmd):
+      args = shlex.split(cmd)
+      calls.append(args[0])
+      if args[0] == 'fake':
+        with open_octets(args[-2], 'rb') as source:
+          data = source.read()
+        with open_octets(args[-1], 'wb') as target:
+          target.write(data)
+      return 0
+
+    self.patch(main.os, 'system', run)
+    return calls
+
+  def test_mismatched_predictor_rows_keep_original_samples(self):
+    for rows in (['\x10\x20\x30\x40', '\x50\x60\x70\x80', '\x90\xa0\xb0\xc0'],
+                 ['\x10\x20\x30\x40', '\x50\x60']):
+      pdf = self.predictor_pdf(rows)
+      calls = self.record_optimizers()
+      pdf.OptimizeImages(['fake %(sourcefnq)s %(targetfnq)s'], False)
+      self.assertEqual(['fake'], calls)
+      self.assertEqual(''.join('\0' + row for row in rows),
+                       binary.decompress(pdf.objs[1].stream))
+
+  def test_oxipng_reduction_runs_once(self):
+    pdf = self.predictor_pdf(['\x10\x20\x30\x40', '\x50\x60\x70\x80'])
+    calls = self.record_optimizers()
+    pdf.OptimizeImages([main.IMAGE_OPTIMIZER_CMD_MAP['oxipng']], False)
+    self.assertEqual(['oxipng'], calls)
+    pdf = self.predictor_pdf(['\x10\x20\x30\x40', '\x50\x60\x70\x80'])
+    calls = self.record_optimizers()
+    pdf.OptimizeImages([main.IMAGE_OPTIMIZER_CMD_MAP['oxipng'],
+                        'fake %(sourcefnq)s %(targetfnq)s'], False)
+    self.assertEqual(['oxipng', 'fake'], calls)
+
 
 if __name__ == '__main__':
   unittest.main(verbosity=2)

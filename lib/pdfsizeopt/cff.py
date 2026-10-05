@@ -431,7 +431,7 @@ def SerializeCffDict(cff_dict):
         output.append(''.join(
             chr(nibbles[i] << 4 | nibbles[i + 1])
             for i in range(0, len(nibbles), 2)))
-      elif isinstance(operand, int) or isinstance(operand, int):
+      elif isinstance(operand, int):
         # This also covers bool (with False==0 and True==1). Good.
 
         if -107 <= operand <= 107:

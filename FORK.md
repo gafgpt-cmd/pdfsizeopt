@@ -28,7 +28,7 @@ T-3B has no open PRs. Original has seven:
 | `lib/pdfsizeopt/main.py` GenerateXrefStream | Retain /Index when the type field is omitted; zero padding would mark reserved object 0 as in-use at byte offset zero. Caught by qpdf 11.x on Ubuntu CI. |
 | `lib/pdfsizeopt/main.py` _RunMultivalent | Remove T-3B's added unconditional `-nostruct -nowebcap`. Core-font unembedding remains explicit/default-off. |
 | `lib/pdfsizeopt/main.py` Python runtime | Python 3 syntax, key-based sorting and integer division; explicit octet/file/struct/zlib boundaries; native file-object loading; failed atomic rename preserves existing files. |
-| `lib/pdfsizeopt/main.py` image candidates | Oxipng/Zopfli defaults replace sam2p/PNGOUT/ECT; PNG reduction prepass, qpdf predictor removal, retain original candidate. |
+| `lib/pdfsizeopt/main.py` image candidates | Oxipng/Zopfli defaults replace sam2p/PNGOUT/ECT; PNG reduction prepass replaces repeat Oxipng run; qpdf predictor removal skipped unless sizes match exactly; retain original candidate. |
 | `lib/pdfsizeopt/main.py` Ghostscript | Exact temporary read/write grants under SAFER; `.runtime/bin` replaces legacy bundle discovery. |
 | `lib/pdfsizeopt/cff.py` | Python 3 integer/byte/hex boundaries, sorting, font-name error handling; symmetric numeric font comparison and optional PostScript difference detection. |
 | `lib/pdfsizeopt/psproc.py` | Modern Ghostscript FontDirectory/CFF loader; remove obsolete `.setpdfwrite`. |

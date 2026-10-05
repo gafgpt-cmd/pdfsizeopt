@@ -1869,7 +1869,7 @@ class PdfObj(object):
   @classmethod
   def GetNumber(cls, data):
     """Return an int, log, float or None."""
-    if isinstance(data, int) or isinstance(data, int):
+    if isinstance(data, int):
       return int(data)
     elif isinstance(data, float):
       pass
@@ -2912,7 +2912,7 @@ class PdfObj(object):
       return value
     elif isinstance(value, bool):  # must be above int and long
       return str(value).lower()
-    elif isinstance(value, int) or isinstance(value, int):
+    elif isinstance(value, int):
       return str(value)
     elif value is None:
       return 'null'
@@ -2931,7 +2931,7 @@ class PdfObj(object):
         return value
     elif isinstance(value, bool):  # must be above int and long
       return str(value).lower()
-    elif isinstance(value, int) or isinstance(value, int):
+    elif isinstance(value, int):
       return str(value)
     elif value is None:
       return 'null'
@@ -3763,7 +3763,7 @@ class PdfObj(object):
     # !! always do a ResolveReferences to flatten /Filter and /DecodeParms.
     if not isinstance(objs, dict):
       raise TypeError
-    if (data is None or isinstance(data, int) or isinstance(data, int) or
+    if (data is None or isinstance(data, int) or
         isinstance(data, float) or isinstance(data, bool)):
       return data
     if not isinstance(data, str):
@@ -4237,9 +4237,17 @@ class ImageData(object):
     return self.compression in ('zip-png', 'zip', 'none')
 
   def CompressWithoutPredictor(self):
-    data = image_filters.unfilter(
-        binary.octets(self.idat), self.COMPRESSION_TO_PREDICTOR[self.compression],
-        self.samples_per_pixel, self.bpc, self.width)
+    predicted_size = self.bytes_per_row * self.height
+    if self.compression == 'zip-png':
+      predicted_size += self.height
+    try:
+      if len(PermissiveZlibDecompress(self.idat)) != predicted_size:
+        raise FormatUnsupported('Predicted image size does not match dimensions')
+      data = image_filters.unfilter(
+          binary.octets(self.idat), self.COMPRESSION_TO_PREDICTOR[self.compression],
+          self.samples_per_pixel, self.bpc, self.width)
+    except (zlib.error, image_filters.DecodeError) as e:
+      raise FormatUnsupported('Cannot decode image predictor: %s' % e)
     if len(data) != self.bytes_per_row * self.height:
       raise FormatUnsupported('Decoded image sample count does not match dimensions')
     self.idat = compat_compress(binary.string(data), 9)
@@ -7839,7 +7847,9 @@ class PdfData(object):
         else:
           np_image_bpc = np_image.bpc
           np_image_color_type = np_image.color_type
+          is_oi_reduced = False
           if sam2p_pr_pattern is None or do_save_oi_fast:
+            is_oi_reduced = sam2p_np_pattern is None
             # No need for need_gray=..., sam2p_np has already done it.
             # TODO(pts): Can we use rendered_image_file_name (a .png)
             #            instead of np_image here, thus not having to save a
@@ -7883,6 +7893,8 @@ class PdfData(object):
             cmd_name = GetCmdName(cmd_pattern)
             if not cmd_name or cmd_name in ('sam2p_pr', 'sam2p_np'):
               continue
+            if is_oi_reduced and cmd_pattern == png_reduction_pattern:
+              continue
             if cmd_name in cmd_names_used:
               i = 2
               while 1:
@@ -7925,8 +7937,13 @@ class PdfData(object):
 
       for cmd_name, image_data in tuple(obj_images):
         if image_data.compression in ('zip-png', 'zip-tiff'):
-          obj_images.append((cmd_name + '-raw', ImageData(image_data)
-                             .CompressWithoutPredictor()))
+          try:
+            raw_image = ImageData(image_data).CompressWithoutPredictor()
+          except FormatUnsupported as e:
+            LogInfo('skipping %s-raw for image XObject %s: %s' %
+                    (cmd_name, obj_num, e))
+            continue
+          obj_images.append((cmd_name + '-raw', raw_image))
       obj_infos = [(obj.size, '#orig', '', obj, None)]
       # Populate obj_infos from obj_images.
       for cmd_name, image_data in obj_images:
