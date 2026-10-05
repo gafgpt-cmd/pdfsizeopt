@@ -1,13 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
-root="$PWD"
-test "$(uname -sm)" = 'Linux x86_64' || { echo 'Toolchain requires Linux x86_64' >&2; exit 1; }
-for tool in curl git cmake make gcc g++ pkg-config unzip; do
-  command -v "$tool" >/dev/null || { echo "Missing build dependency: $tool" >&2; exit 1; }
-done
-mkdir -p .runtime/bin
-jobs="${BUILD_JOBS:-4}"
 download() {
   local target="$1" digest="$2" url="$3"
   if printf '%s  %s\n' "$digest" "$target" | sha256sum -c --status - 2>/dev/null; then
@@ -33,6 +25,15 @@ link_tool() {
   fi
   ln -s "$1" "$2"
 }
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
+cd "$(dirname "$0")/.."
+root="$PWD"
+test "$(uname -sm)" = 'Linux x86_64' || { echo 'Toolchain requires Linux x86_64' >&2; exit 1; }
+for tool in curl git cmake make gcc g++ pkg-config unzip; do
+  command -v "$tool" >/dev/null || { echo "Missing build dependency: $tool" >&2; exit 1; }
+done
+mkdir -p .runtime/bin
+jobs="${BUILD_JOBS:-4}"
 # uv manages only this project's environment; no global packages are changed.
 download .runtime/uv-0.12.23.tar.gz \
   9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6 \

@@ -141,7 +141,7 @@ print(json.dumps(calls))
         work = Path(tempfile.mkdtemp())
         shutil.copytree(ROOT / 'lib', work / 'lib')
         shutil.copy(ROOT / 'mksingle.py', work)
-        (work / '.venv').symlink_to((ROOT / '.venv').resolve())
+        (work / '.venv').symlink_to(Path(sys.prefix))
         subprocess.run([sys.executable, str(work / 'mksingle.py')], check=True,
                        capture_output=True, timeout=60)
         stubs = work / 'stubs'
@@ -169,48 +169,51 @@ print(json.dumps(calls))
             env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(0, result.returncode, result.stderr)
 
-    def run_setup_download(self, work, mode):
-        env = dict(os.environ, CURL_MODE=mode,
-                   GOOD_FILE=str(ROOT / '.runtime' / 'uv-0.12.23.tar.gz'),
+    def download(self, work, served, digest):
+        (work / 'served').write_bytes(served)
+        env = dict(os.environ,
                    PATH=str(work / 'stubs') + os.pathsep + os.environ['PATH'])
-        return subprocess.run(['bash', 'extra/setup_fork_tests.sh'], cwd=work,
-                              env=env, capture_output=True, text=True,
-                              timeout=120)
+        return subprocess.run(
+            ['bash', '-c', 'source "$1" && download "$2" "$3" "$4"', 'setup',
+             str(ROOT / 'extra' / 'setup_fork_tests.sh'), 'archive.tar.gz',
+             digest, 'https://example.invalid/archive.tar.gz'],
+            cwd=work, env=env, capture_output=True, text=True, timeout=60)
 
     def test_setup_download_publishes_only_verified_archives(self):
-        good = (ROOT / '.runtime' / 'uv-0.12.23.tar.gz').read_bytes()
+        good = os.urandom(4096)
+        digest = hashlib.sha256(good).hexdigest()
         work = Path(tempfile.mkdtemp())
-        (work / 'extra').mkdir()
-        shutil.copy(ROOT / 'extra' / 'setup_fork_tests.sh', work / 'extra')
         stubs = work / 'stubs'
         stubs.mkdir()
-        for tool in ('git', 'cmake', 'make', 'gcc', 'g++', 'pkg-config', 'unzip'):
-            self.write_stub(stubs / tool, 'exit 0\n')
         self.write_stub(stubs / 'curl', (
+            'echo "$@" >> "$PWD/curl.log"\n'
             'while test "$1" != -o; do shift; done\n'
-            'if test "$CURL_MODE" = partial; then\n'
+            'if test "$(cat served)" = partial; then\n'
             '  printf partial > "$2"; exit 28\n'
             'fi\n'
-            'cp "$GOOD_FILE" "$2"\n'))
-        self.write_stub(stubs / 'tar', 'echo extracted >> "$PWD/tar.log"; exit 3\n')
-        target = work / '.runtime' / 'uv-0.12.23.tar.gz'
+            'cp served "$2"\n'))
+        target = work / 'archive.tar.gz'
 
-        result = self.run_setup_download(work, 'partial')
-        self.assertNotEqual(0, result.returncode)
+        self.assertNotEqual(0, self.download(work, b'partial', digest).returncode)
         self.assertFalse(target.exists())
-        self.assertFalse((work / 'tar.log').exists())
+
+        self.assertNotEqual(0, self.download(work, b'wrong bytes', digest).returncode)
+        self.assertFalse(target.exists())
 
         target.write_bytes(b'corrupt cached download')
-        result = self.run_setup_download(work, 'partial')
-        self.assertNotEqual(0, result.returncode)
+        self.assertNotEqual(0, self.download(work, b'partial', digest).returncode)
         self.assertEqual(b'corrupt cached download', target.read_bytes())
-        self.assertFalse((work / 'tar.log').exists())
 
-        result = self.run_setup_download(work, 'good')
-        self.assertEqual(3, result.returncode, result.stderr)
-        self.assertEqual(hashlib.sha256(good).digest(),
-                         hashlib.sha256(target.read_bytes()).digest())
-        self.assertEqual('extracted\n', (work / 'tar.log').read_text())
+        result = self.download(work, good, digest)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(good, target.read_bytes())
+        self.assertFalse((work / 'archive.tar.gz.part').exists())
+
+        calls = (work / 'curl.log').read_text().splitlines()
+        result = self.download(work, b'wrong bytes', digest)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(good, target.read_bytes())
+        self.assertEqual(calls, (work / 'curl.log').read_text().splitlines())
 
     def test_octet_file_object_loading(self):
         path = Path(__file__).resolve().parent / 'small.pdf'
